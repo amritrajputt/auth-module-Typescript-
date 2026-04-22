@@ -26,7 +26,7 @@ export class Jwt {
 
     public static async generateResetToken(user: User) {
         const token = randomBytes(32).toString("hex");
-        const hashedToken = createHmac('sha256', user.salt!).update(token).digest('hex');
+        const hashedToken = createHmac('sha256', jwtSecret).update(token).digest('hex');
         const tokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
         await db.update(users).set({
             resetPasswordToken: hashedToken,
@@ -35,15 +35,15 @@ export class Jwt {
         return { rawToken: token, hashedToken: hashedToken };
     }
 
-    public static async generateVerifyToken(user:User) {
+    public static async generateVerifyToken(user: User) {
         const token = randomBytes(32).toString("hex");
-        const hashedToken = createHmac('sha256', user.salt!).update(token).digest('hex');
+        const hashedToken = createHmac('sha256', jwtSecret).update(token).digest('hex');
         const tokenExpiry = new Date(Date.now() + 15 * 60 * 1000);
         await db.update(users).set({
             verifyToken: hashedToken,
             verifyTokenExpiry: tokenExpiry
         }).where(eq(users.id, user.id));
-        return {rawToken:token,hashedToken};
+        return { rawToken: token, hashedToken };
     }
 
 }

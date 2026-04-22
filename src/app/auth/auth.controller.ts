@@ -10,7 +10,11 @@ import type { User } from "../../db/schema.js";
 import { sendVerificationEmail } from "../common/utils/email.js";
 
 export class AuthController {
-    public async register(req: Request, res: Response, next: NextFunction) {
+    private hashToken = (token: string) => {
+        return createHmac('sha256', process.env.JWT_SECRET!).update(token).digest('hex');
+    }
+
+    public register = async (req: Request, res: Response, next: NextFunction) => {
         try {
             // req.body is already validated and safe to use!
             const { email, password, firstName, lastName } = req.body;
@@ -55,10 +59,8 @@ export class AuthController {
             next(error);
         }
     }
-    private hashToken = (token: string) => {
-        return createHmac('sha256', process.env.JWT_SECRET!).update(token).digest('hex');
-    }
-    public async login(req: Request, res: Response, next: NextFunction) {
+
+    public login = async (req: Request, res: Response, next: NextFunction) => {
         // req.body is already validated and safe to use!
         const { email, password } = req.body;
 
@@ -80,6 +82,36 @@ export class AuthController {
                 refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
             }).where(eq(users.id, existingUser.id));
             res.status(200).json(ApiResponse.ok("User logged in successfully", { accessToken, refreshToken }));
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    public verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const { token } = req.body;
+
+            // Hash the incoming raw token to find the match in our database
+            const hashedToken = this.hashToken(token);
+
+            const [existingUser] = await db.select().from(users).where(eq(users.verifyToken, hashedToken));
+
+            if (!existingUser) {
+                return next(ApiError.notFound("Invalid or expired verification token"));
+            }
+
+            // Check if the token has expired
+            if (existingUser.verifyTokenExpiry && existingUser.verifyTokenExpiry < new Date()) {
+                return next(ApiError.unAuthorized("Verification token has expired"));
+            }
+
+            // Mark user as verified and clear the token fields
+            await db.update(users).set({
+                isVerified: true,
+                verifyToken: null,
+                verifyTokenExpiry: null
+            }).where(eq(users.id, existingUser.id));
+            res.status(200).json(ApiResponse.success("Email verified successfully",200, null));
         } catch (error) {
             next(error);
         }
