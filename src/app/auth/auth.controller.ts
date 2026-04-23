@@ -116,6 +116,30 @@ export class AuthController {
             next(error);
         }
     }
+
+    //generate new access token using the refresh token   
+    public refreshAccessToken = async(req:Request,res:Response,next:NextFunction)=>{
+        try{
+            const token = req.body.refreshToken;
+            const decodedToken = Jwt.verifyRefreshToken(token);
+            if(!decodedToken){
+                return next(ApiError.unAuthorized("Invalid or expired refresh token"));
+            }
+            const [existingUser] = await db.select().from(users).where(eq(users.id, decodedToken.id));
+            if(!existingUser){
+                return next(ApiError.notFound("User not found"));
+            }
+            const accessToken = await Jwt.generateAccessToken(existingUser);
+            const refreshToken = await Jwt.generateRefreshToken(existingUser);
+            await db.update(users).set({
+                refreshToken: this.hashToken(refreshToken),
+                refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            }).where(eq(users.id, existingUser.id));
+            res.status(200).json(ApiResponse.ok("User logged in successfully", { accessToken, refreshToken }));
+        }catch(error){
+            next(error);
+        }
+    }
 }
 
 

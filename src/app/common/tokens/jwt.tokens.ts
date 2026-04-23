@@ -8,6 +8,12 @@ import { eq } from "drizzle-orm";
 const jwtSecret = process.env.JWT_SECRET as string;
 const jwtRefreshSecret = process.env.JWT_REFRESH_SECRET as string;
 
+export interface TokenPayload {
+    id: string;
+    iat?: number;
+    exp?: number;
+}
+
 export class Jwt {
 
     public static generateAccessToken(user: User) {
@@ -18,10 +24,10 @@ export class Jwt {
     }
 
     public static verifyToken(token: string) {
-        return jwt.verify(token, jwtSecret);
+        return jwt.verify(token, jwtSecret) as TokenPayload;
     }
     public static verifyRefreshToken(token: string) {
-        return jwt.verify(token, jwtRefreshSecret);
+        return jwt.verify(token, jwtRefreshSecret) as TokenPayload;
     }
 
     public static async generateResetToken(user: User) {
