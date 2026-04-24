@@ -138,6 +138,7 @@ export class AuthController {
             res.status(200).json(ApiResponse.ok("User logged in successfully", { accessToken, refreshToken }));
         }catch(error){
             next(error);
+            
         }
     }
 }
